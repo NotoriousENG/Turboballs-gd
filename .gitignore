@@ -1,0 +1,20 @@
+# rustlang
+*/target
+
+# Godot 4+ specific ignores
+.godot/
+
+# Godot-specific ignores
+*.import
+export.cfg
+export_presets.cfg
+
+build
+
+# Imported translations (automatically generated from CSV files)
+*.translation
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json

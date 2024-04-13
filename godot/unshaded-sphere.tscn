@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://dgf7pwi6kkggg"]
+
+[ext_resource type="PackedScene" uid="uid://ccaf4217fv5ea" path="res://assets/models/sphere.glb" id="1_0q2ci"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5d1np"]
+shading_mode = 0
+albedo_color = Color(1, 0, 1, 1)
+
+[node name="sphere" instance=ExtResource("1_0q2ci")]
+
+[node name="Sphere" parent="." index="0"]
+surface_material_override/0 = SubResource("StandardMaterial3D_5d1np")
