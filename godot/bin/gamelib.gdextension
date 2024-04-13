@@ -6,8 +6,8 @@ reloadable = true
 [libraries]
 linux.debug.x86_64 =     "res://../rust/target/debug/libgame.so"
 linux.release.x86_64 =   "res://../rust/target/release/libgame.so"
-windows.debug.x86_64 =   "res://../rust/target/debug/game.dll"
-windows.release.x86_64 = "res://../rust/target/release/game.dll"
+windows.debug.x86_64 =   "res://../rust/target/x86_64-pc-windows-gnu/debug/game.dll"
+windows.release.x86_64 = "res://../rust/target/x86_64-pc-windows-gnu/release/game.dll"
 macos.debug =            "res://../rust/target/debug/libgame.dylib"
 macos.release =          "res://../rust/target/release/libgame.dylib"
 macos.debug.arm64 =      "res://../rust/target/debug/libgame.dylib"

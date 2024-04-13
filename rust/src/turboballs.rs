@@ -1,5 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use godot::engine::{Camera3D, INode3D, Label, MeshInstance3D, Node3D, RandomNumberGenerator};
+use godot::engine::{
+    Camera3D, Control, INode3D, Label, MeshInstance3D, Node3D, RandomNumberGenerator,
+};
 use godot::prelude::*;
 use std::sync::{Arc, Mutex};
 
@@ -18,6 +20,13 @@ pub struct Turboballs {
     ball_begin_pos: Vector3,
     ball_end_pos: Vector3,
     rng: Gd<RandomNumberGenerator>,
+    score_label: Option<Gd<Label>>,
+    score: i32,
+    high_score_label: Option<Gd<Label>>,
+    high_score: i32,
+    is_playing: bool,
+    playing_control_ui: Option<Gd<Control>>,
+    start_control_ui: Option<Gd<Control>>,
 }
 
 const X_RANGE: f32 = 9.0;
@@ -42,8 +51,6 @@ fn lerpf(a: f32, b: f32, t: f32) -> f32 {
 #[godot_api]
 impl INode3D for Turboballs {
     fn init(base: Base<Node3D>) -> Self {
-        godot_print!("Loaded turboballs!");
-
         // setup audio input
         let host = cpal::default_host();
         let device = host.default_input_device().unwrap();
@@ -90,17 +97,48 @@ impl INode3D for Turboballs {
             ball_begin_pos: Vector3::new(-X_RANGE + BALL_OFFSET, 0.0, 0.0),
             ball_end_pos: Vector3::new(-X_RANGE, 0.0, PLAYER_BALL_DEST),
             rng: RandomNumberGenerator::new_gd(),
+            score_label: None,
+            score: 0,
+            high_score_label: None,
+            high_score: 0,
+            is_playing: false,
+            playing_control_ui: None,
+            start_control_ui: None,
         }
     }
     fn ready(&mut self) {
         self.player = Some(self.base().get_node_as::<Node3D>("player"));
-        self.mic_label = Some(self.base().get_node_as::<Label>("hud/mic_label"));
+        self.mic_label = Some(self.base().get_node_as::<Label>("hud/playing/mic_label"));
         self.camera = Some(self.base().get_node_as::<Camera3D>("camera"));
         self.ball = Some(self.base().get_node_as::<Node3D>("ball"));
         self.enemy = Some(self.base().get_node_as::<Node3D>("enemy"));
+        self.score_label = Some(self.base().get_node_as::<Label>("hud/playing/score_label"));
+        self.high_score_label = Some(
+            self.base()
+                .get_node_as::<Label>("hud/playing/hi_score_label"),
+        );
+        self.t = 0.0;
+        self.is_playing = false;
+        self.playing_control_ui = Some(self.base().get_node_as::<Control>("hud/playing"));
+        self.start_control_ui = Some(self.base().get_node_as::<Control>("hud/start"));
+        self.playing_control_ui.as_mut().unwrap().hide();
+        self.start_control_ui.as_mut().unwrap().show();
     }
 
     fn process(&mut self, delta: f64) {
+        if !self.is_playing {
+            // if enter is pressed reset the game
+            if Input::singleton().is_action_just_pressed("tb_start".into()) {
+                self.score = 0;
+                let score_label = self.score_label.as_mut().unwrap();
+                score_label.set_text(GString::from(format!("Score: {}", self.score)));
+                self.is_playing = true;
+                self.t = 1.01;
+                self.start_control_ui.as_mut().unwrap().hide();
+                self.playing_control_ui.as_mut().unwrap().show();
+            }
+            return;
+        }
         self.t += 0.4 * delta as f32;
 
         let mic_label = self.mic_label.as_mut().unwrap();
@@ -110,19 +148,41 @@ impl INode3D for Turboballs {
 
         let player = self.player.as_mut().unwrap();
         // set the player's x position based on the rms volume (0 is -9, 1 is 9)
-        let x = (rms_volume * X_RANGE * 2.0) - X_RANGE;
-        let pos = player.get_position();
-        player.set_position(Vector3::new(x, pos.y, pos.z));
+        let mut player_pos = player.get_position();
+        player_pos.x = (rms_volume * X_RANGE * 2.0) - X_RANGE;
+        player.set_position(player_pos);
 
         let cam = self.camera.as_mut().unwrap();
-        let cam_pos = cam.get_position();
-        let cam_x = (rms_volume * CAM_RANGE * 2.0) - CAM_RANGE;
-        cam.set_position(Vector3::new(cam_x, cam_pos.y, cam_pos.z));
+        let mut cam_pos = cam.get_position();
+        cam_pos.x = (rms_volume * CAM_RANGE * 2.0) - CAM_RANGE;
+        cam.set_position(cam_pos);
         // cam look at origin
         cam.look_at(Vector3::new(0.0, 0.0, 0.0));
 
         let ball = self.ball.as_mut().unwrap();
         let mut ball_pos = ball.get_position();
+
+        if self.ball_end_pos.z == PLAYER_BALL_DEST {
+            if Vector3::distance_to(ball_pos, player_pos) < 3.5 {
+                self.score += 1;
+                self.t = 1.1;
+                let score_label = self.score_label.as_mut().unwrap();
+                score_label.set_text(GString::from(format!("Score: {}", self.score)));
+                if self.score > self.high_score {
+                    self.high_score = self.score;
+                    let high_score_label = self.high_score_label.as_mut().unwrap();
+                    high_score_label
+                        .set_text(GString::from(format!("High Score: {}", self.high_score)));
+                }
+
+                // if it is 0.1 away from dest
+            } else if PLAYER_BALL_DEST - ball_pos.z < 0.1 {
+                self.t = 1.1;
+                self.is_playing = false;
+                self.playing_control_ui.as_mut().unwrap().hide();
+                self.start_control_ui.as_mut().unwrap().show();
+            }
+        }
 
         ball_pos = Vector3::lerp(self.ball_begin_pos, self.ball_end_pos, self.t);
 

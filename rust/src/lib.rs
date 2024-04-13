@@ -1,6 +1,6 @@
 use godot::prelude::*;
 
-pub mod player;
+pub mod flicker;
 pub mod turboballs;
 
 struct MyExtension;
