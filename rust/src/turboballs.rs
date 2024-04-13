@@ -204,7 +204,7 @@ impl INode3D for Turboballs {
             // set a random x position for ball end pos based on cam max
             // use godot rng
             self.rng.randomize();
-            let x = self.rng.randf_range(-CAM_RANGE, CAM_RANGE);
+            let x = self.rng.randf_range(-X_RANGE, X_RANGE);
             self.ball_end_pos.x = x;
             let color: Color = Color::from_rgb(
                 self.rng.randf_range(0.0, 1.0),
