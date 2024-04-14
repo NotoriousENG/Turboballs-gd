@@ -1,6 +1,8 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use godot::engine::utilities::sign;
 use godot::engine::{
-    Camera3D, Control, INode3D, Label, MeshInstance3D, Node3D, RandomNumberGenerator,
+    Camera3D, Control, DisplayServer, INode3D, Label, MeshInstance3D, Node3D, Os,
+    RandomNumberGenerator,
 };
 use godot::prelude::*;
 use std::sync::{Arc, Mutex};
@@ -54,6 +56,38 @@ impl INode3D for Turboballs {
         // setup audio input
         let host = cpal::default_host();
         let device = host.default_input_device().unwrap();
+        #[cfg(target_os = "android")]
+        {
+            // let p = Os::singleton().request_permission("android.permission.RECORD_AUDIO".into());
+            let p = false;
+            let permissions = Os::singleton().get_granted_permissions();
+            godot_print!("Permissions: {:?}", permissions);
+            if !p {
+                godot_print!("Failed to get audio permission");
+                return Self {
+                    base,
+                    rms_volume: Arc::new(Mutex::new(0.0)),
+                    _stream: None,
+                    player: None,
+                    mic_label: None,
+                    camera: None,
+                    ball: None,
+                    enemy: None,
+                    t: 0.0,
+                    ball_begin_pos: Vector3::new(-X_RANGE + BALL_OFFSET, 0.0, 0.0),
+                    ball_end_pos: Vector3::new(-X_RANGE, 0.0, PLAYER_BALL_DEST),
+                    rng: RandomNumberGenerator::new_gd(),
+                    score_label: None,
+                    score: 0,
+                    high_score_label: None,
+                    high_score: 0,
+                    is_playing: false,
+                    playing_control_ui: None,
+                    start_control_ui: None,
+                };
+            }
+        }
+
         let config = device.default_input_config().unwrap();
         let rms_volume = Arc::new(Mutex::new(0.0));
         let rms_volume_clone = Arc::clone(&rms_volume);
@@ -126,6 +160,30 @@ impl INode3D for Turboballs {
     }
 
     fn process(&mut self, delta: f64) {
+        #[cfg(target_os = "android")]
+        {
+            let mut s = -1.0;
+            if Input::singleton().is_action_pressed("tb_start".into()) {
+                s = 1.0;
+            }
+            let mut rms_volume = self.rms_volume.lock().unwrap();
+            *rms_volume = (*rms_volume + (delta as f32) * s).clamp(0.0, 1.0);
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            if Input::singleton().is_action_just_pressed("toggle_fullscreen".into()) {
+                let fullscreen = godot::engine::display_server::WindowMode::FULLSCREEN;
+                let is_fullscreen = DisplayServer::singleton().window_get_mode() == fullscreen;
+                if is_fullscreen {
+                    DisplayServer::singleton()
+                        .window_set_mode(godot::engine::display_server::WindowMode::WINDOWED);
+                    // set the window size to 800x600
+                    DisplayServer::singleton().window_set_size(Vector2i::new(800, 600));
+                } else {
+                    DisplayServer::singleton().window_set_mode(fullscreen);
+                }
+            }
+        }
         if !self.is_playing {
             // if enter is pressed reset the game
             if Input::singleton().is_action_just_pressed("tb_start".into()) {
